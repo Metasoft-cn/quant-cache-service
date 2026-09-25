@@ -28,8 +28,15 @@ class CacheManager:
         """解析相对路径，确保结果在 base 内（防路径穿越）"""
         target = (base / relative).resolve()
         base_resolved = base.resolve()
-        if not str(target).startswith(str(base_resolved)):
-            raise ValueError(f"路径越界: {relative}")
+
+        # Do not use string-prefix checks here.  A sibling such as
+        # "/data/cache_evil" starts with "/data/cache" as text but is not
+        # actually inside the cache root.  Path.relative_to() performs a
+        # component-aware containment check and fails closed.
+        try:
+            target.relative_to(base_resolved)
+        except ValueError as exc:
+            raise ValueError(f"路径越界: {relative}") from exc
         return target
 
     def _fmt_time(self, ts: float) -> str:
