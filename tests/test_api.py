@@ -260,6 +260,18 @@ class TestClean:
 
 
 class TestPathSecurity:
+    def test_sibling_prefix_escape_blocked(self, temp_cache):
+        """相邻目录即使名称以前缀匹配，也绝不能被视为缓存根目录内部。"""
+        from app.cache_manager import CacheManager
+
+        sibling = temp_cache.parent / f"{temp_cache.name}_evil"
+        sibling.mkdir()
+        (sibling / "secret.txt").write_text("secret", encoding="utf-8")
+
+        manager = CacheManager(cache_root=temp_cache, parquet_root=temp_cache)
+        with pytest.raises(ValueError, match="路径越界"):
+            manager._safe_resolve(temp_cache, f"../{sibling.name}/secret.txt")
+
     def test_path_traversal_blocked(self, client):
         """路径穿越攻击应被拒绝"""
         resp = client.get("/api/cache/files/..%2F..%2Fetc")
